@@ -16,7 +16,7 @@ func main() {
 	if err != nil {
 		log.Printf("Couldn't read config: %s", err)
 	}
-	fmt.Printf("Read config: %+v\n", cfg)
+	// fmt.Printf("Read config: %+v\n", cfg)
 
 	db, err := sql.Open("postgres", cfg.DbUrl)
 	if err != nil {
@@ -35,9 +35,16 @@ func main() {
 
 	cmds.register("login", handlerlogin)
 	cmds.register("register", handlerregister)
+	cmds.register("reset", handlerreset)
+	cmds.register("users", handlerlistusers)
+	cmds.register("agg", handleraggregate)
+	cmds.register("addfeed", handleraddfeed)
+	cmds.register("feeds", handlerfeeds)
+	cmds.register("follow", handlerfollow)
+	cmds.register("following", handlerfollowing)
 
 	if len(os.Args) < 2 {
-		fmt.Println("not enough arguments were provided")
+		fmt.Println("Need command!")
 		os.Exit(1)
 	}
 

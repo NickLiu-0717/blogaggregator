@@ -7,6 +7,8 @@ package database
 
 import (
 	"context"
+
+	"github.com/google/uuid"
 )
 
 const createUser = `-- name: CreateUser :one
@@ -32,13 +34,22 @@ func (q *Queries) CreateUser(ctx context.Context, name string) (User, error) {
 	return i, err
 }
 
-const getUser = `-- name: GetUser :one
+const deleteAllUsers = `-- name: DeleteAllUsers :exec
+Delete from users
+`
+
+func (q *Queries) DeleteAllUsers(ctx context.Context) error {
+	_, err := q.db.ExecContext(ctx, deleteAllUsers)
+	return err
+}
+
+const getUserFromName = `-- name: GetUserFromName :one
 SELECT id, created_at, updated_at, name FROM users
 where name = $1
 `
 
-func (q *Queries) GetUser(ctx context.Context, name string) (User, error) {
-	row := q.db.QueryRowContext(ctx, getUser, name)
+func (q *Queries) GetUserFromName(ctx context.Context, name string) (User, error) {
+	row := q.db.QueryRowContext(ctx, getUserFromName, name)
 	var i User
 	err := row.Scan(
 		&i.ID,
@@ -47,4 +58,43 @@ func (q *Queries) GetUser(ctx context.Context, name string) (User, error) {
 		&i.Name,
 	)
 	return i, err
+}
+
+const getUserNameFromID = `-- name: GetUserNameFromID :one
+select name from users
+where id = $1
+`
+
+func (q *Queries) GetUserNameFromID(ctx context.Context, id uuid.UUID) (string, error) {
+	row := q.db.QueryRowContext(ctx, getUserNameFromID, id)
+	var name string
+	err := row.Scan(&name)
+	return name, err
+}
+
+const getUsers = `-- name: GetUsers :many
+SELECT name from users
+`
+
+func (q *Queries) GetUsers(ctx context.Context) ([]string, error) {
+	rows, err := q.db.QueryContext(ctx, getUsers)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			return nil, err
+		}
+		items = append(items, name)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
