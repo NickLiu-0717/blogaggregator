@@ -29,5 +29,14 @@ from feed_follows as ff
 left join feeds as f on ff.feed_id = f.id
 where ff.user_id = $1;
 
+-- name: DeleteFollowFromURLandUser :exec
+Delete from feed_follows as ff
+using feeds as f
+where
+ff.feed_id = f.id 
+and f.url = $1
+and ff.user_id = $2;
+
+
 -- name: DeleteFeedFollow :exec
 Delete from feed_follows;

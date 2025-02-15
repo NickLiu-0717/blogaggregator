@@ -25,5 +25,16 @@ where url = $1;
 -- name: GetFeeds :many
 SELECT * from feeds;
 
+-- name: MarkFeedFetched :exec
+update feeds
+set last_fetch_at = NOW(), updated_at = NOW()
+where id = $1;
+
+-- name: GetNextFeedToFetch :one
+select id, url
+from feeds
+order by last_fetch_at asc nulls first
+limit 1;
+
 -- name: DeleteAllFeeds :exec
 Delete from feeds;

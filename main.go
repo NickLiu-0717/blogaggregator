@@ -38,10 +38,11 @@ func main() {
 	cmds.register("reset", handlerreset)
 	cmds.register("users", handlerlistusers)
 	cmds.register("agg", handleraggregate)
-	cmds.register("addfeed", handleraddfeed)
+	cmds.register("addfeed", middlewareLoggedIn(handleraddfeed))
 	cmds.register("feeds", handlerfeeds)
-	cmds.register("follow", handlerfollow)
-	cmds.register("following", handlerfollowing)
+	cmds.register("follow", middlewareLoggedIn(handlerfollow))
+	cmds.register("following", middlewareLoggedIn(handlerfollowing))
+	cmds.register("unfollow", middlewareLoggedIn(handlerUnfollow))
 
 	if len(os.Args) < 2 {
 		fmt.Println("Need command!")

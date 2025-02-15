@@ -4,7 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"os"
+	"time"
 
 	config "github.com/NickLiu-0717/blogaggregator/internal/config"
 	"github.com/NickLiu-0717/blogaggregator/internal/database"
@@ -31,7 +33,7 @@ func (c *commands) register(name string, f func(*state, command) error) {
 func (c *commands) run(s *state, cmd command) error {
 	_, ok := c.handlers[cmd.name]
 	if !ok {
-		return errors.New("Unresgist command")
+		return errors.New("unresgist command")
 	}
 
 	handlerfunc := c.handlers[cmd.name]
@@ -111,27 +113,27 @@ func handlerlistusers(s *state, cmd command) error {
 }
 
 func handleraggregate(s *state, cmd command) error {
-	if len(cmd.arguments) != 2 {
-		return fmt.Errorf("incorrect argument for agg, need agg only")
+	if len(cmd.arguments) != 3 {
+		return fmt.Errorf("incorrect argument for agg, need agg TIME")
 	}
-	const feedURL = "https://www.wagslane.dev/index.xml"
-	rss, err := fetchFeed(context.Background(), feedURL)
+	timeBetweenRequests, err := time.ParseDuration(cmd.arguments[2])
 	if err != nil {
+		log.Printf("Error parsing duration: %s", err)
 		return err
 	}
-	fmt.Printf("%+v\n", rss)
+
+	ticker := time.NewTicker(timeBetweenRequests)
+	for range ticker.C {
+		scrapeFeeds(s)
+	}
 	return nil
 }
 
-func handleraddfeed(s *state, cmd command) error {
+func handleraddfeed(s *state, cmd command, dbUser database.User) error {
 	if cmd.arguments == nil || len(cmd.arguments) != 4 {
 		return fmt.Errorf("incorrect arguments for adding feed, need addfeed FEEDNAME URL")
 	}
-	usr := s.cfg.CurrentUserName
-	dbUser, err := s.db.GetUserFromName(context.TODO(), usr)
-	if err != nil {
-		return err
-	}
+
 	dbFeed, err := s.db.CreateFeed(context.TODO(), database.CreateFeedParams{
 		Name:   cmd.arguments[2],
 		Url:    cmd.arguments[3],
@@ -165,20 +167,16 @@ func handlerfeeds(s *state, cmd command) error {
 		if err != nil {
 			return err
 		}
-		fmt.Printf("Feed name: %s, Feed URL: %s, User: %s\n", feed.Name, feed.Url, usrName)
+		fmt.Printf("Feed ID: %v, Feed name: %s, Feed URL: %s, User: %s\n", feed.ID, feed.Name, feed.Url, usrName)
 	}
 	return nil
 }
 
-func handlerfollow(s *state, cmd command) error {
+func handlerfollow(s *state, cmd command, dbUser database.User) error {
 	if len(cmd.arguments) != 3 {
 		return fmt.Errorf("incorrect argument for follow, need follow URL")
 	}
 	dbFeed, err := s.db.GetFeedIDandNameFromURL(context.TODO(), cmd.arguments[2])
-	if err != nil {
-		return err
-	}
-	dbUser, err := s.db.GetUserFromName(context.TODO(), s.cfg.CurrentUserName)
 	if err != nil {
 		return err
 	}
@@ -193,21 +191,36 @@ func handlerfollow(s *state, cmd command) error {
 	return nil
 }
 
-func handlerfollowing(s *state, cmd command) error {
+func handlerfollowing(s *state, cmd command, dbUser database.User) error {
 	if len(cmd.arguments) != 2 {
 		return fmt.Errorf("incorrect argument for following, need following only")
-	}
-	dbUser, err := s.db.GetUserFromName(context.TODO(), s.cfg.CurrentUserName)
-	if err != nil {
-		return err
 	}
 	feeds, err := s.db.GetFeedFollowsForUser(context.TODO(), dbUser.ID)
 	if err != nil {
 		return err
 	}
 	fmt.Printf("User %s is following:\n", s.cfg.CurrentUserName)
+	if len(feeds) == 0 {
+		fmt.Printf("User %s is not following any feeds", s.cfg.CurrentUserName)
+		return nil
+	}
 	for _, feed := range feeds {
 		fmt.Printf("%s\n", feed.String)
 	}
+	return nil
+}
+
+func handlerUnfollow(s *state, cmd command, dbUser database.User) error {
+	if len(cmd.arguments) != 3 {
+		return fmt.Errorf("incorrect argument for following, need unfollow URL")
+	}
+	err := s.db.DeleteFollowFromURLandUser(context.TODO(), database.DeleteFollowFromURLandUserParams{
+		Url:    cmd.arguments[2],
+		UserID: dbUser.ID,
+	})
+	if err != nil {
+		return err
+	}
+	fmt.Printf("Delete following between %s and %s", dbUser.Name, cmd.arguments[2])
 	return nil
 }
