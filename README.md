@@ -1,5 +1,5 @@
 # What is a blogaggregator?
-Blogaggregator (short for gator) is a web aggregator for users to collect website's posts
+Blogaggregator is a web aggregator for users to collect website's posts
 
 ## Command:
 - register: register with a username
