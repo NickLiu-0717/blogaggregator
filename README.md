@@ -1,7 +1,7 @@
 # What is a blogaggregator?
 Blogaggregator (short for gator) is a web aggregator for users to collect website's posts
 
-## command:
+## Command:
 - register: register with a username
 - login: login with a username
 - users: list all registed users
@@ -13,3 +13,5 @@ Blogaggregator (short for gator) is a web aggregator for users to collect websit
 - browse: browse with optional argument limit for limiting the listed post information
 - reset: Delete all users
   
+## How to install:
+Type `go install github/NickLiu-0717/blogaggregator@latest` to install
