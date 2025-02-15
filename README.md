@@ -14,4 +14,4 @@ Blogaggregator (short for gator) is a web aggregator for users to collect websit
 - reset: Delete all users
   
 ## How to install:
-Type `go install github/NickLiu-0717/blogaggregator@latest` to install
+Type `go install github.com/NickLiu-0717/blogaggregator@latest` to install
