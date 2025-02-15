@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strconv"
+	"strings"
 	"time"
 
 	config "github.com/NickLiu-0717/blogaggregator/internal/config"
@@ -45,7 +47,7 @@ func (c *commands) run(s *state, cmd command) error {
 
 func handlerlogin(s *state, cmd command) error {
 	if len(cmd.arguments) != 3 {
-		return fmt.Errorf("incorrect arguments for login, need login USERNAME")
+		return fmt.Errorf("invalid arguments for login, need login USERNAME")
 	}
 	username := cmd.arguments[2]
 	_, err := s.db.GetUserFromName(context.Background(), username)
@@ -62,7 +64,7 @@ func handlerlogin(s *state, cmd command) error {
 
 func handlerregister(s *state, cmd command) error {
 	if len(cmd.arguments) != 3 {
-		return fmt.Errorf("incorrect arguments for register, need register USERNAME")
+		return fmt.Errorf("invalid arguments for register, need register USERNAME")
 	}
 	username := cmd.arguments[2]
 	_, err := s.db.GetUserFromName(context.Background(), username)
@@ -84,7 +86,7 @@ func handlerregister(s *state, cmd command) error {
 
 func handlerreset(s *state, cmd command) error {
 	if len(cmd.arguments) != 2 {
-		return fmt.Errorf("incorrect argument for reset, need reset only")
+		return fmt.Errorf("invalid arguments for reset, need reset only")
 	}
 	err := s.db.DeleteAllUsers(context.Background())
 	if err != nil {
@@ -96,7 +98,7 @@ func handlerreset(s *state, cmd command) error {
 
 func handlerlistusers(s *state, cmd command) error {
 	if len(cmd.arguments) != 2 {
-		return fmt.Errorf("incorrect argument for listing user, need list only")
+		return fmt.Errorf("invalid arguments for listing user, need list only")
 	}
 	users, err := s.db.GetUsers(context.Background())
 	if err != nil {
@@ -114,7 +116,7 @@ func handlerlistusers(s *state, cmd command) error {
 
 func handleraggregate(s *state, cmd command) error {
 	if len(cmd.arguments) != 3 {
-		return fmt.Errorf("incorrect argument for agg, need agg TIME")
+		return fmt.Errorf("invalid arguments for agg, need agg TIME")
 	}
 	timeBetweenRequests, err := time.ParseDuration(cmd.arguments[2])
 	if err != nil {
@@ -131,7 +133,7 @@ func handleraggregate(s *state, cmd command) error {
 
 func handleraddfeed(s *state, cmd command, dbUser database.User) error {
 	if cmd.arguments == nil || len(cmd.arguments) != 4 {
-		return fmt.Errorf("incorrect arguments for adding feed, need addfeed FEEDNAME URL")
+		return fmt.Errorf("invalid arguments for adding feed, need addfeed FEEDNAME URL")
 	}
 
 	dbFeed, err := s.db.CreateFeed(context.TODO(), database.CreateFeedParams{
@@ -156,7 +158,7 @@ func handleraddfeed(s *state, cmd command, dbUser database.User) error {
 
 func handlerfeeds(s *state, cmd command) error {
 	if len(cmd.arguments) != 2 {
-		return fmt.Errorf("incorrect argument for feeds, need feeds only")
+		return fmt.Errorf("invalid arguments for feeds, need feeds only")
 	}
 	feeds, err := s.db.GetFeeds(context.TODO())
 	if err != nil {
@@ -174,7 +176,7 @@ func handlerfeeds(s *state, cmd command) error {
 
 func handlerfollow(s *state, cmd command, dbUser database.User) error {
 	if len(cmd.arguments) != 3 {
-		return fmt.Errorf("incorrect argument for follow, need follow URL")
+		return fmt.Errorf("invalid arguments for follow, need follow URL")
 	}
 	dbFeed, err := s.db.GetFeedIDandNameFromURL(context.TODO(), cmd.arguments[2])
 	if err != nil {
@@ -193,7 +195,7 @@ func handlerfollow(s *state, cmd command, dbUser database.User) error {
 
 func handlerfollowing(s *state, cmd command, dbUser database.User) error {
 	if len(cmd.arguments) != 2 {
-		return fmt.Errorf("incorrect argument for following, need following only")
+		return fmt.Errorf("invalid arguments for following, need following only")
 	}
 	feeds, err := s.db.GetFeedFollowsForUser(context.TODO(), dbUser.ID)
 	if err != nil {
@@ -212,7 +214,7 @@ func handlerfollowing(s *state, cmd command, dbUser database.User) error {
 
 func handlerUnfollow(s *state, cmd command, dbUser database.User) error {
 	if len(cmd.arguments) != 3 {
-		return fmt.Errorf("incorrect argument for following, need unfollow URL")
+		return fmt.Errorf("invalid arguments for following, need unfollow URL")
 	}
 	err := s.db.DeleteFollowFromURLandUser(context.TODO(), database.DeleteFollowFromURLandUserParams{
 		Url:    cmd.arguments[2],
@@ -223,4 +225,52 @@ func handlerUnfollow(s *state, cmd command, dbUser database.User) error {
 	}
 	fmt.Printf("Delete following between %s and %s", dbUser.Name, cmd.arguments[2])
 	return nil
+}
+
+func handlerbrowse(s *state, cmd command, dbUser database.User) error {
+	var limit int32
+	if len(cmd.arguments) == 3 {
+		num, err := strconv.Atoi(cmd.arguments[2])
+		if err != nil {
+			return fmt.Errorf("the argument needs to be integer")
+		}
+		limit = int32(num)
+	} else if len(cmd.arguments) == 2 {
+		limit = 2
+	} else {
+		return fmt.Errorf("invalid arguments for browse, need browse LIMIT")
+	}
+	dbPosts, err := s.db.GetPostsforUser(context.Background(), database.GetPostsforUserParams{
+		UserID: dbUser.ID,
+		Limit:  limit,
+	})
+	if err != nil {
+		return err
+	}
+	for index, post := range dbPosts {
+		fmt.Printf("Post %v:\n", index+1)
+		fmt.Println("- Title: ", post.Title.String)
+		fmt.Println("- URL: ", post.Url)
+		fmt.Println("- Published at: ", post.PublishedAt)
+		fmt.Println("- Description: ", helperstringhtml(post.Description))
+	}
+	return nil
+}
+
+func helperstringhtml(input string) string {
+	start := `<a href="`
+	end := `">`
+
+	startIndex := strings.Index(input, start)
+	if startIndex == -1 {
+		return "" // Start not found
+	}
+	startIndex += len(start)
+	endIndex := strings.Index(input[startIndex:], end)
+	if endIndex == -1 {
+		return "" // End not found
+	}
+
+	// Extract and return URL
+	return input[startIndex : startIndex+endIndex]
 }

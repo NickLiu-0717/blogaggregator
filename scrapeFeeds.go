@@ -2,10 +2,13 @@ package main
 
 import (
 	"context"
-	"fmt"
+	"database/sql"
 	"html"
 	"log"
 
+	"time"
+
+	"github.com/NickLiu-0717/blogaggregator/internal/database"
 	"github.com/google/uuid"
 )
 
@@ -29,10 +32,27 @@ func scrapeFeeds(s *state) {
 		return
 	}
 	for _, item := range rss.Channel.Item {
-		if html.UnescapeString(item.Title) == "" {
-			fmt.Printf("Title: emtpy string with feed id: %s\n", feed.ID)
-			continue
+		var pubtime time.Time
+		if item.PubDate != "" {
+			pubtime, err = time.Parse(time.RFC1123Z, item.PubDate)
+			if err != nil {
+				log.Printf("Error fetching feed: %s", err)
+				return
+			}
 		}
-		fmt.Printf("Title: %+v\n", html.UnescapeString(item.Title))
+		_, err = s.db.CreatePost(context.Background(), database.CreatePostParams{
+			Title: sql.NullString{
+				String: html.UnescapeString(item.Title),
+				Valid:  true,
+			},
+			Url:         item.Link,
+			Description: html.UnescapeString(item.Description),
+			PublishedAt: pubtime,
+			FeedID:      feed.ID,
+		})
+		if err != nil {
+			log.Printf("Error creating post: %s", err)
+			return
+		}
 	}
 }

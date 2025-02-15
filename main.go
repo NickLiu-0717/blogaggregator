@@ -43,6 +43,7 @@ func main() {
 	cmds.register("follow", middlewareLoggedIn(handlerfollow))
 	cmds.register("following", middlewareLoggedIn(handlerfollowing))
 	cmds.register("unfollow", middlewareLoggedIn(handlerUnfollow))
+	cmds.register("browse", middlewareLoggedIn(handlerbrowse))
 
 	if len(os.Args) < 2 {
 		fmt.Println("Need command!")
